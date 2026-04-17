@@ -1,0 +1,9 @@
+# ── Core ──────────────────────────────────────
+flask>=3.0.0
+opencv-python>=4.8.0
+numpy>=1.24.0
+tensorflow>=2.13.0
+mediapipe>=0.10.0
+
+# ── Optional utilities ────────────────────────
+Pillow>=10.0.0

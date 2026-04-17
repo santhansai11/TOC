@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>EmotionAI – Real-Time Facial Emotion Detection</title>
+  <meta name="description" content="Real-time CNN-based facial emotion detection with probability bars, session analytics, and low-latency streaming." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;900&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+<!-- ══════════════════════ HEADER ══════════════════════ -->
+<header id="app-header">
+  <div class="header-left">
+    <div class="logo-pulse"></div>
+    <span class="logo-text">Emotion<span class="accent">AI</span></span>
+    <span class="badge" id="status-badge">INITIALIZING</span>
+  </div>
+  <div class="header-right">
+    <div class="metric-pill">
+      <span class="metric-label">FACES</span>
+      <span class="metric-value" id="hdr-face-count">0</span>
+    </div>
+    <div class="metric-pill">
+      <span class="metric-label">FPS</span>
+      <span class="metric-value" id="hdr-fps">—</span>
+    </div>
+    <div class="metric-pill">
+      <span class="metric-label">SESSION</span>
+      <span class="metric-value" id="hdr-session-time">0s</span>
+    </div>
+    <button class="toggle-btn" id="overlay-toggle" title="Toggle face box overlay">⬡ OVERLAY</button>
+    <button class="toggle-btn" id="timeline-toggle" title="Toggle emotion timeline">◈ TIMELINE</button>
+    <button class="toggle-btn" id="session-toggle" title="Toggle session report">◎ SESSION</button>
+    <button class="toggle-btn stop-btn" id="stop-btn" title="Stop / Resume face detection">⏹ STOP</button>
+    <button class="toggle-btn danger-btn" id="session-reset-btn" title="Reset session data">↺ RESET</button>
+  </div>
+</header>
+
+<!-- ══════════════════════ MAIN LAYOUT ══════════════════════ -->
+<main id="app-main">
+
+  <!-- ── LEFT: Video Panel ── -->
+  <section id="video-section" class="panel glass">
+    <div class="panel-header">
+      <span class="panel-title">LIVE FEED</span>
+      <div class="panel-header-right">
+        <span class="scan-status" id="scan-text">SCANNING…</span>
+      </div>
+    </div>
+
+    <div id="video-wrapper">
+      <!-- MJPEG feed from Flask -->
+      <img id="video-stream" src="/video_feed" alt="Live webcam feed" />
+
+      <!-- Face Box + label injected by JS (SVG layer) -->
+      <svg id="face-svg" viewBox="0 0 640 480" preserveAspectRatio="none"></svg>
+
+      <!-- HUD corners -->
+      <div class="hud-corner hud-tl"></div>
+      <div class="hud-corner hud-tr"></div>
+      <div class="hud-corner hud-bl"></div>
+      <div class="hud-corner hud-br"></div>
+
+      <!-- Scan line -->
+      <div class="scan-line" id="scan-line"></div>
+
+      <!-- Alert overlay (triggered on strong emotion) -->
+      <div id="emotion-alert" class="emotion-alert hidden"></div>
+
+      <!-- Paused overlay – shown when detection is stopped -->
+      <div id="paused-overlay">
+        <div class="paused-icon">⏸</div>
+        <div class="paused-label">DETECTION PAUSED</div>
+        <div class="paused-sub">Click ▶ RESUME to restart</div>
+      </div>
+    </div>
+
+    <!-- quick legend -->
+    <div class="video-footer">
+      <span class="v-info">640 × 480 · 30 FPS</span>
+      <span class="v-info" id="latency-text">LATENCY: —</span>
+      <span class="v-info" id="model-info">CNN: MobileNetV2</span>
+      <span class="v-info" id="face-selector-footer"></span>
+    </div>
+  </section>
+
+  <!-- ── RIGHT: Emotion Panel ── -->
+  <aside id="emotion-panel" class="panel glass">
+    <div class="panel-header">
+      <span class="panel-title">EMOTION ANALYSIS</span>
+      <span class="face-selector" id="face-selector"></span>
+    </div>
+
+    <!-- Dominant Emotion Card -->
+    <div id="dominant-card">
+      <div class="dominant-emoji" id="dom-emoji">😐</div>
+      <div class="dominant-info">
+        <div class="dominant-label" id="dom-label">NEUTRAL</div>
+        <div class="dominant-conf">
+          <span id="dom-conf-val">0</span>% confidence
+        </div>
+        <div class="confidence-ring-wrap">
+          <svg class="confidence-ring" viewBox="0 0 80 80">
+            <circle cx="40" cy="40" r="34" class="ring-bg"/>
+            <circle cx="40" cy="40" r="34" class="ring-fill" id="ring-fill"/>
+          </svg>
+        </div>
+      </div>
+      <div class="dominant-desc" id="dom-desc">Reading facial expression…</div>
+    </div>
+
+    <!-- Emotion Bars -->
+    <div id="emotion-bars">
+      <div class="bars-title">PROBABILITY DISTRIBUTION</div>
+      <!-- bars dynamically rendered by JS -->
+    </div>
+
+    <!-- Timeline Graph -->
+    <div id="timeline-section" class="hidden">
+      <div class="bars-title">EMOTION TIMELINE (last 60 s)</div>
+      <canvas id="timeline-canvas" width="320" height="120"></canvas>
+      <div class="timeline-legend" id="timeline-legend"></div>
+    </div>
+
+    <!-- Session Report -->
+    <div id="session-section" class="hidden">
+      <div class="bars-title">SESSION REPORT
+        <span id="session-elapsed" class="session-elapsed">0s</span>
+      </div>
+      <div id="session-dominant-row">
+        <span class="session-dom-label">Session dominant:</span>
+        <span class="session-dom-val" id="sess-dom">—</span>
+      </div>
+      <div id="session-bars">
+        <!-- rendered by JS -->
+      </div>
+    </div>
+
+    <!-- Explanation block -->
+    <div id="explanation-box">
+      <div class="bars-title">AI INSIGHT</div>
+      <p id="explanation-text">Face not detected. Please position yourself in frame.</p>
+    </div>
+  </aside>
+
+</main>
+
+<!-- ══════════════════════ MODEL MISSING TOAST ══════════════════════ -->
+<div id="model-toast" class="toast hidden">
+  <div class="toast-icon">⚠</div>
+  <div>
+    <strong>Model not found.</strong><br>
+    Run <code>python train_model.py</code> first, then restart.
+  </div>
+  <button id="toast-close">✕</button>
+</div>
+
+<script src="script.js"></script>
+</body>
+</html>

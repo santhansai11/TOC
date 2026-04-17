@@ -1,6 +1,0 @@
-# This folder will contain the TF.js model files after training:
-#   model.json          — model architecture + weight manifest
-#   group1-shard1of1.bin — model weights binary
-#
-# Run:  python ml/train_model.py
-# to generate these files.
